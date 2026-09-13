@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<!--
+    ЭТО ШАБЛОН. БЕРИ ЕГО ЗА ОСНОВУ КАЖДЫЙ РАЗ И ПРАВЬ.
+
+    ЧТО СОХРАНИТЬ:
+    ✓ Общую структуру (шапка, сайдбар, область канваса)
+    ✓ Нейтральную тему (цвета UI, шрифты, фон)
+    ✓ Секцию навигации по сидам (включай всегда)
+    ✓ Секцию действий (Сбросить, Скачать PNG)
+    ✓ Самодостаточность (весь код инлайн)
+
+    ЧТО МЕНЯТЬ ТВОРЧЕСКИ:
+    ✗ Алгоритм p5.js (воплощай СВОЁ видение)
+    ✗ Параметры (определи, что нужно ИМЕННО ТВОЕЙ работе)
+    ✗ UI-контролы (под ТВОИ параметры)
+
+    Пусть философия ведёт реализацию. Твори смело.
+-->
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вьювер генеративного искусства</title>
+    <!-- p5.js: сначала пробуем CDN; если из сэндбокса недоступен — скачай p5.min.js локально и поменяй src на "p5.min.js" -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        /* ─────────── Нейтральная тёмная тема ─────────── */
+        :root {
+            --bg: #0f1115;
+            --bg-elev: #171a21;
+            --panel: #1c2029;
+            --border: #2a2f3a;
+            --text: #e7e9ee;
+            --text-dim: #8b909c;
+            --accent: #6ea8fe;
+            --accent-strong: #4b8dfa;
+            --track: #2a2f3a;
+            --mono: 'SFMono-Regular', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--sans);
+            background: radial-gradient(1200px 800px at 20% -10%, #1a1e27 0%, var(--bg) 60%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Сайдбар */
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+            letter-spacing: 0.2px;
+        }
+
+        .sidebar .subtitle {
+            color: var(--text-dim);
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.45;
+        }
+
+        /* Секции контролов */
+        .control-section {
+            margin-bottom: 32px;
+        }
+
+        .control-section h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: '•';
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Поле сида */
+        .seed-input {
+            width: 100%;
+            background: var(--bg-elev);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .seed-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.18);
+            background: var(--bg);
+        }
+
+        .seed-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .regen-button {
+            margin-bottom: 0;
+        }
+
+        /* Параметры */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--track);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: var(--accent-strong);
+        }
+
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .value-display {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Пипетки цвета */
+        .color-group {
+            margin-bottom: 16px;
+        }
+
+        .color-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-picker-container input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .color-value {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        /* Кнопки */
+        .button {
+            background: var(--accent-strong);
+            color: #0b0d12;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button.secondary {
+            background: var(--bg-elev);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .button.secondary:hover {
+            background: var(--panel);
+            border-color: var(--accent);
+        }
+
+        .button.tertiary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .button.tertiary:hover {
+            background: var(--bg-elev);
+            border-color: var(--accent);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .button {
+            flex: 1;
+        }
+
+        /* Область канваса */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #canvas-container {
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            background: var(--bg-elev);
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Состояние загрузки */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            font-size: 16px;
+            color: var(--text-dim);
+        }
+
+        /* Адаптив — стекаем на мобильных */
+        @media (max-width: 600px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .canvas-area {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Сайдбар с контролами -->
+        <div class="sidebar">
+            <!-- Заголовки (НАСТРОЙ ПОД СВОЮ РАБОТУ) -->
+            <h1>НАЗВАНИЕ — ПРАВИТЬ</h1>
+            <div class="subtitle">ПОДЗАГОЛОВОК — ПРАВИТЬ</div>
+
+            <!-- Секция «Сид» (СОХРАНЯЙ ВСЕГДА) -->
+            <div class="control-section">
+                <h3>Сид</h3>
+                <input type="number" id="seed-input" class="seed-input" value="12345" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">← Пред</button>
+                    <button class="button secondary" onclick="nextSeed()">След →</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">↻ Случайный</button>
+            </div>
+
+            <!-- Секция «Параметры» (НАСТРОЙ ПОД СВОЮ РАБОТУ) -->
+            <div class="control-section">
+                <h3>Параметры</h3>
+
+                <!-- Количество частиц -->
+                <div class="control-group">
+                    <label>Количество частиц</label>
+                    <div class="slider-container">
+                        <input type="range" id="particleCount" min="1000" max="10000" step="500" value="5000" oninput="updateParam('particleCount', this.value)">
+                        <span class="value-display" id="particleCount-value">5000</span>
+                    </div>
+                </div>
+
+                <!-- Скорость потока -->
+                <div class="control-group">
+                    <label>Скорость потока</label>
+                    <div class="slider-container">
+                        <input type="range" id="flowSpeed" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateParam('flowSpeed', this.value)">
+                        <span class="value-display" id="flowSpeed-value">0.5</span>
+                    </div>
+                </div>
+
+                <!-- Масштаб шума -->
+                <div class="control-group">
+                    <label>Масштаб шума</label>
+                    <div class="slider-container">
+                        <input type="range" id="noiseScale" min="0.001" max="0.02" step="0.001" value="0.005" oninput="updateParam('noiseScale', this.value)">
+                        <span class="value-display" id="noiseScale-value">0.005</span>
+                    </div>
+                </div>
+
+                <!-- Длина следа -->
+                <div class="control-group">
+                    <label>Длина следа</label>
+                    <div class="slider-container">
+                        <input type="range" id="trailLength" min="2" max="20" step="1" value="8" oninput="updateParam('trailLength', this.value)">
+                        <span class="value-display" id="trailLength-value">8</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Секция «Цвета» (ОПЦИОНАЛЬНО — НАСТРОЙ ИЛИ УДАЛИ) -->
+            <div class="control-section">
+                <h3>Цвета</h3>
+
+                <!-- Цвет 1 -->
+                <div class="color-group">
+                    <label>Основной цвет</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color1" value="#6ea8fe" onchange="updateColor('color1', this.value)">
+                        <span class="color-value" id="color1-value">#6ea8fe</span>
+                    </div>
+                </div>
+
+                <!-- Цвет 2 -->
+                <div class="color-group">
+                    <label>Дополнительный цвет</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color2" value="#b48ef2" onchange="updateColor('color2', this.value)">
+                        <span class="color-value" id="color2-value">#b48ef2</span>
+                    </div>
+                </div>
+
+                <!-- Цвет 3 -->
+                <div class="color-group">
+                    <label>Акцентный цвет</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color3" value="#7fd1ae" onchange="updateColor('color3', this.value)">
+                        <span class="color-value" id="color3-value">#7fd1ae</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Секция «Действия» (СОХРАНЯЙ ВСЕГДА) -->
+            <div class="control-section">
+                <h3>Действия</h3>
+                <div class="button-row">
+                    <button class="button secondary" onclick="resetParameters()">Сбросить</button>
+                    <button class="button" onclick="downloadPNG()">Скачать PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Область канваса -->
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Инициализация генеративного искусства…</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // ПАРАМЕТРЫ ГЕНЕРАТИВНОГО ИСКУССТВА — НАСТРОЙ ПОД СВОЙ АЛГОРИТМ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let params = {
+            seed: 12345,
+            particleCount: 5000,
+            flowSpeed: 0.5,
+            noiseScale: 0.005,
+            trailLength: 8,
+            colorPalette: ['#6ea8fe', '#b48ef2', '#7fd1ae']
+        };
+
+        let defaultParams = {...params}; // дефолты для сброса
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // АЛГОРИТМ P5.JS — ЗАМЕНИ НА СВОЁ ВИДЕНИЕ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let particles = [];
+        let flowField = [];
+        let cols, rows;
+        let scl = 10; // разрешение флоу-филда
+
+        function setup() {
+            let canvas = createCanvas(1200, 1200);
+            canvas.parent('canvas-container');
+
+            initializeSystem();
+
+            // убрать сообщение загрузки
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function initializeSystem() {
+            // засеваем случайность для воспроизводимости
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+
+            // очищаем и пересоздаём частицы
+            particles = [];
+
+            // инициализируем частицы
+            for (let i = 0; i < params.particleCount; i++) {
+                particles.push(new Particle());
+            }
+
+            // размеры флоу-филда
+            cols = floor(width / scl);
+            rows = floor(height / scl);
+
+            // генерируем флоу-филд
+            generateFlowField();
+
+            // очищаем фон (тёмный)
+            background(15, 17, 21);
+        }
+
+        function generateFlowField() {
+          // заполни это
+        }
+
+        function draw() {
+            // заполни это
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // СИСТЕМА ЧАСТИЦ — НАСТРОЙ ПОД СВОЙ АЛГОРИТМ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        class Particle {
+            constructor() {
+                // заполни это
+            }
+            // заполни это
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ОБРАБОТЧИКИ UI — НАСТРОЙ ПОД СВОИ ПАРАМЕТРЫ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateParam(paramName, value) {
+            // заполни это
+        }
+
+        function updateColor(colorId, value) {
+            // заполни это
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // УПРАВЛЕНИЕ СИДОМ — СОХРАНЯЙ ЭТИ ФУНКЦИИ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let input = document.getElementById('seed-input');
+            let newSeed = parseInt(input.value);
+            if (newSeed && newSeed > 0) {
+                params.seed = newSeed;
+                initializeSystem();
+            } else {
+                // вернуть текущий сид, если ввод некорректен
+                updateSeedDisplay();
+            }
+        }
+
+        function previousSeed() {
+            params.seed = Math.max(1, params.seed - 1);
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function nextSeed() {
+            params.seed = params.seed + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = Math.floor(Math.random() * 999999) + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function resetParameters() {
+            params = {...defaultParams};
+
+            // обновляем элементы UI
+            document.getElementById('particleCount').value = params.particleCount;
+            document.getElementById('particleCount-value').textContent = params.particleCount;
+            document.getElementById('flowSpeed').value = params.flowSpeed;
+            document.getElementById('flowSpeed-value').textContent = params.flowSpeed;
+            document.getElementById('noiseScale').value = params.noiseScale;
+            document.getElementById('noiseScale-value').textContent = params.noiseScale;
+            document.getElementById('trailLength').value = params.trailLength;
+            document.getElementById('trailLength-value').textContent = params.trailLength;
+
+            // сбрасываем цвета
+            document.getElementById('color1').value = params.colorPalette[0];
+            document.getElementById('color1-value').textContent = params.colorPalette[0];
+            document.getElementById('color2').value = params.colorPalette[1];
+            document.getElementById('color2-value').textContent = params.colorPalette[1];
+            document.getElementById('color3').value = params.colorPalette[2];
+            document.getElementById('color3-value').textContent = params.colorPalette[2];
+
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function downloadPNG() {
+            saveCanvas('generative-art-' + params.seed, 'png');
+        }
+
+        // инициализация UI при загрузке
+        window.addEventListener('load', function() {
+            updateSeedDisplay();
+        });
+    </script>
+</body>
+</html>
